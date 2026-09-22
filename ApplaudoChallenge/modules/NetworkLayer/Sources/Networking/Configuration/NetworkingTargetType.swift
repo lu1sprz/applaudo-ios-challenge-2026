@@ -11,7 +11,7 @@ import Moya
 // MARK: - Networking Target Type
 /// Describes a network endpoint. Conform to this protocol to define API targets.
 /// Each `request*` property maps to the corresponding Moya `TargetType` requirement.
-protocol NetworkingTargetType: TargetType {
+protocol NetworkingTargetType: TargetType, Sendable {
     var requestBaseURL: URL { get }
     var requestPath: String { get }
     var requestHeaders: [String: String]? { get }

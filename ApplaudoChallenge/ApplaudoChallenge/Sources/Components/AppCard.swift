@@ -6,6 +6,7 @@ struct AppCard: View {
     var subtitle: String = ""
     var imageSystemName: String = "photo"
     var showChevron: Bool = true
+    var subtitleLineLimit: Int?
 
     var body: some View {
         HStack(spacing: AppTheme.Spacing.md) {
@@ -27,6 +28,7 @@ struct AppCard: View {
                     Text(subtitle)
                         .font(AppTheme.Fonts.caption)
                         .foregroundColor(AppTheme.Colors.textSecondary)
+                        .lineLimit(subtitleLineLimit)
                 }
             }
 

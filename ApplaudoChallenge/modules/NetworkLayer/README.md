@@ -1,7 +1,7 @@
 # NetworkLayer
 
 A pre-built networking module that abstracts the HTTP communication layer for the iOS challenge project.  
-It is backed by [Moya](https://github.com/Moya/Moya) and [Combine](https://developer.apple.com/documentation/combine).
+It is backed by [Moya](https://github.com/Moya/Moya) and exposes an async/await API.
 
 ---
 
@@ -46,7 +46,7 @@ CAT_API_KEY=YOUR-API-KEY
 Consumers of this module should:
 
 1. Define a new target conforming to `NetworkingTargetType` (see `CatInformationTarget` as a reference).
-2. Create a service in the `Services/` folder that holds a `NetworkingRequesterType` dependency and exposes Combine publishers to the rest of the app.
+2. Create a service in the `Services/` folder that holds a `NetworkingRequesterType` dependency and exposes async functions to the rest of the app.
 3. Inject the service into the relevant view model or coordinator.
 
 ---

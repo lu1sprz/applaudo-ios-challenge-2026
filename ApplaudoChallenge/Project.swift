@@ -38,6 +38,11 @@ private func environmentValue(named name: String) -> String {
 
 let project = Project(
     name: "ApplaudoChallenge",
+    settings: .settings(
+        base: [
+            "SWIFT_VERSION": "6.0",
+        ]
+    ),
     targets: [
         .target(
             name: "ApplaudoChallenge",
