@@ -31,10 +31,10 @@ This module connects to [The Cat API](https://thecatapi.com). You need a free AP
 1. Generate your key at:  
    **https://developers.thecatapi.com/view-account/ylX4blBYT9FaoVd6OhvR?report=FJkYOq9tW**
 
-2. Once you have the key, replace the placeholder in `NetworkingTargetType.swift`:
+2. Once you have the key, replace the placeholder in `ApplaudoChallenge/.env`:
 
-```swift
-"x-api-key": "YOUR-API-KEY"
+```sh
+CAT_API_KEY=YOUR-API-KEY
 ```
 
 > Requests made without a valid key will be rate-limited and may fail.

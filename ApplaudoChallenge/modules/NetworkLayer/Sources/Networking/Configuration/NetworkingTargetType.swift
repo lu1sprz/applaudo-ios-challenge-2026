@@ -24,6 +24,10 @@ protocol NetworkingTargetType: TargetType {
 /// Shared defaults for all endpoints. Override individual properties in your target only when needed.
 extension NetworkingTargetType {
 
+    private var catAPIKey: String {
+        Bundle.main.object(forInfoDictionaryKey: "CAT_API_KEY") as? String ?? ""
+    }
+
     // MARK: - Request Base URL
     // Shared across all endpoints; override per-target only if you need a different host.
     var requestBaseURL: URL {
@@ -35,7 +39,7 @@ extension NetworkingTargetType {
     var requestHeaders: [String: String]? {
         [
             "Content-Type": "application/json",
-            "x-api-key": "YOUR-API-KEY" // TODO: Replace with your actual API key.
+            "x-api-key": catAPIKey
         ]
     }
 
