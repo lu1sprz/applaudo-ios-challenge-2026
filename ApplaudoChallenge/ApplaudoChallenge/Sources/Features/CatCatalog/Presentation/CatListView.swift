@@ -4,6 +4,7 @@ struct CatListView: View {
     let viewModel: CatListViewModel
 
     @State private var loadRequest = 0
+    @State private var paginationRetryRequest = 0
 
     var body: some View {
         Group {
@@ -28,6 +29,13 @@ struct CatListView: View {
                 await viewModel.retry()
             }
         }
+        .navigationDestination(for: CatCatalogRoute.self) { route in
+            destination(for: route)
+        }
+        .task(id: paginationRetryRequest) {
+            guard paginationRetryRequest > 0 else { return }
+            await viewModel.retryNextPage()
+        }
     }
 
     private var loadingView: some View {
@@ -42,19 +50,56 @@ struct CatListView: View {
         ScrollView {
             LazyVStack(spacing: AppTheme.Spacing.md) {
                 ForEach(viewModel.breeds) { breed in
-                    AppCard(
-                        title: breed.name,
-                        subtitle: breed.description,
-                        imageSystemName: "cat.fill",
-                        showChevron: false,
-                        subtitleLineLimit: 3
-                    )
+                    NavigationLink(value: CatCatalogRoute.detail(breed.id)) {
+                        AppCard(
+                            title: breed.name,
+                            subtitle: breed.description,
+                            imageSystemName: "cat.fill",
+                            subtitleLineLimit: 3
+                        )
+                    }
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("cat-breed-\(breed.id)")
+                    .task {
+                        await viewModel.loadNextPageIfNeeded(currentBreed: breed)
+                    }
                 }
+
+                paginationFooter
             }
             .padding(AppTheme.Spacing.md)
         }
         .accessibilityIdentifier("cat-breed-list")
+    }
+
+    @ViewBuilder
+    private var paginationFooter: some View {
+        switch viewModel.paginationState {
+        case .loading:
+            ProgressView("Loading more breeds…")
+                .font(AppTheme.Fonts.caption)
+                .tint(AppTheme.Colors.primary)
+                .foregroundStyle(AppTheme.Colors.textSecondary)
+                .padding(.vertical, AppTheme.Spacing.md)
+                .accessibilityIdentifier("cat-list-pagination-loading")
+        case .error(let message):
+            VStack(spacing: AppTheme.Spacing.sm) {
+                Text(message)
+                    .font(AppTheme.Fonts.caption)
+                    .foregroundStyle(AppTheme.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+
+                Button("Try Again") {
+                    paginationRetryRequest += 1
+                }
+                .font(AppTheme.Fonts.body)
+                .foregroundStyle(AppTheme.Colors.primary)
+            }
+            .padding(.vertical, AppTheme.Spacing.sm)
+            .accessibilityIdentifier("cat-list-pagination-error")
+        case .idle, .endReached:
+            EmptyView()
+        }
     }
 
     private var emptyView: some View {
@@ -75,6 +120,22 @@ struct CatListView: View {
             action: { loadRequest += 1 }
         )
         .accessibilityIdentifier("cat-list-error")
+    }
+
+    @ViewBuilder
+    private func destination(for route: CatCatalogRoute) -> some View {
+        switch route {
+        case .detail(let breedID):
+            if let breed = viewModel.breed(withID: breedID) {
+                CatBreedDetailView(breed: breed)
+            } else {
+                EmptyStateView(
+                    systemImage: "cat",
+                    title: "Breed Unavailable",
+                    message: "This breed is no longer available in the catalog."
+                )
+            }
+        }
     }
 }
 

@@ -2,9 +2,14 @@ import SwiftUI
 
 public struct ContentView: View {
     let catListViewModel: CatListViewModel
+    let addCatViewModel: AddCatViewModel
 
-    init(catListViewModel: CatListViewModel) {
+    init(
+        catListViewModel: CatListViewModel,
+        addCatViewModel: AddCatViewModel
+    ) {
         self.catListViewModel = catListViewModel
+        self.addCatViewModel = addCatViewModel
     }
 
     public var body: some View {
@@ -16,13 +21,8 @@ public struct ContentView: View {
                 Label("Cats", systemImage: "cat")
             }
 
-            // MARK: - Tab 2: Add Cat
-            // TODO: Replace placeholder with your AddCatStepperView
             NavigationStack {
-                Text("Add New Cat")
-                    .font(AppTheme.Fonts.title)
-                    .foregroundColor(AppTheme.Colors.textPrimary)
-                    .navigationTitle("Add Cat")
+                AddCatStepperView(viewModel: addCatViewModel)
             }
             .tabItem {
                 Label("Add Cat", systemImage: "plus.circle")
@@ -36,8 +36,19 @@ public struct ContentView: View {
     ContentView(
         catListViewModel: CatListViewModel(
             repository: ContentViewPreviewRepository()
+        ),
+        addCatViewModel: AddCatViewModel(
+            repository: ContentViewRegisteredCatPreviewRepository()
         )
     )
+}
+
+private struct ContentViewRegisteredCatPreviewRepository: RegisteredCatRepositoryProtocol {
+    func save(_ cat: RegisteredCat) async throws {}
+
+    func fetchAll() async throws -> [RegisteredCat] {
+        []
+    }
 }
 
 private struct ContentViewPreviewRepository: CatBreedRepositoryProtocol {

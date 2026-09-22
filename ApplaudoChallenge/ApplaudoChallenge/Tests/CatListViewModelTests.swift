@@ -21,6 +21,8 @@ struct CatListViewModelTests {
 
         #expect(viewModel.state == .loaded)
         #expect(viewModel.breeds.map(\.id) == breeds.map(\.id))
+        #expect(viewModel.breed(withID: "abys")?.name == "Breed abys")
+        #expect(viewModel.breed(withID: "missing") == nil)
         #expect(await repository.capturedPagination == Pagination(page: 0, limit: 20))
     }
 
@@ -84,6 +86,114 @@ struct CatListViewModelTests {
         await firstLoad.value
     }
 
+    @Test("It loads the next page near the end and removes duplicate IDs")
+    func loadsNextPage() async {
+        let initialBreeds = (0..<20).map { Self.breed(id: "breed-\($0)") }
+        let repository = CatBreedRepositoryStub(
+            results: [
+                .success(initialBreeds),
+                .success([
+                    Self.breed(id: "breed-19"),
+                    Self.breed(id: "breed-20"),
+                    Self.breed(id: "breed-21"),
+                ]),
+            ]
+        )
+        let viewModel = CatListViewModel(repository: repository)
+
+        await viewModel.loadBreeds()
+        await viewModel.loadNextPageIfNeeded(currentBreed: initialBreeds[0])
+
+        #expect(await repository.requestCount == 1)
+
+        await viewModel.loadNextPageIfNeeded(currentBreed: initialBreeds[15])
+
+        #expect(viewModel.breeds.count == 22)
+        #expect(Set(viewModel.breeds.map(\.id)).count == 22)
+        #expect(viewModel.paginationState == .endReached)
+        #expect(
+            await repository.capturedPaginations == [
+                Pagination(page: 0, limit: 20),
+                Pagination(page: 1, limit: 20),
+            ]
+        )
+    }
+
+    @Test("It preserves content and retries the same page after a pagination error")
+    func retriesPagination() async {
+        let initialBreeds = (0..<20).map { Self.breed(id: "breed-\($0)") }
+        let nextBreeds = [Self.breed(id: "breed-20")]
+        let repository = CatBreedRepositoryStub(
+            results: [
+                .success(initialBreeds),
+                .failure(.unavailable),
+                .success(nextBreeds),
+            ]
+        )
+        let viewModel = CatListViewModel(repository: repository)
+
+        await viewModel.loadBreeds()
+        await viewModel.loadNextPageIfNeeded(currentBreed: initialBreeds[19])
+
+        #expect(viewModel.breeds.map(\.id) == initialBreeds.map(\.id))
+        #expect(
+            viewModel.paginationState == .error(
+                message: "We couldn't load more breeds. Please try again."
+            )
+        )
+
+        await viewModel.retryNextPage()
+
+        #expect(
+            viewModel.breeds.map(\.id) == (initialBreeds + nextBreeds).map(\.id)
+        )
+        #expect(viewModel.paginationState == .endReached)
+        #expect(
+            await repository.capturedPaginations == [
+                Pagination(page: 0, limit: 20),
+                Pagination(page: 1, limit: 20),
+                Pagination(page: 1, limit: 20),
+            ]
+        )
+    }
+
+    @Test("It stops pagination after a partial initial page")
+    func stopsAtEnd() async {
+        let breeds = [Self.breed(id: "abys")]
+        let repository = CatBreedRepositoryStub(results: [.success(breeds)])
+        let viewModel = CatListViewModel(repository: repository)
+
+        await viewModel.loadBreeds()
+        await viewModel.loadNextPageIfNeeded(currentBreed: breeds[0])
+
+        #expect(viewModel.paginationState == .endReached)
+        #expect(await repository.requestCount == 1)
+    }
+
+    @Test("It prevents duplicate concurrent pagination requests")
+    func preventsDuplicatePagination() async {
+        let initialBreeds = (0..<20).map { Self.breed(id: "breed-\($0)") }
+        let repository = ControlledCatBreedRepository()
+        let viewModel = CatListViewModel(repository: repository)
+
+        let initialLoad = Task { await viewModel.loadBreeds() }
+        await repository.waitUntilRequested()
+        await repository.complete(with: .success(initialBreeds))
+        await initialLoad.value
+
+        let pagination = Task {
+            await viewModel.loadNextPageIfNeeded(currentBreed: initialBreeds[19])
+        }
+        await repository.waitUntilRequested()
+        await viewModel.loadNextPageIfNeeded(currentBreed: initialBreeds[19])
+
+        #expect(await repository.requestCount == 2)
+        #expect(await repository.capturedPagination == Pagination(page: 1, limit: 20))
+
+        await repository.complete(with: .success([]))
+        await pagination.value
+    }
+
     private static func breed(id: String) -> CatBreed {
         CatBreed(
             id: id,
@@ -114,6 +224,7 @@ private enum ServiceStubError: Error, LocalizedError, Equatable, Sendable {
 private actor CatBreedRepositoryStub: CatBreedRepositoryProtocol {
     private var results: [Result<[CatBreed], ServiceStubError>]
     private(set) var requestCount = 0
+    private(set) var capturedPaginations: [Pagination] = []
 
     init(results: [Result<[CatBreed], ServiceStubError>]) {
         self.results = results
@@ -121,6 +232,7 @@ private actor CatBreedRepositoryStub: CatBreedRepositoryProtocol {
 
     func fetchBreeds(page: Int, limit: Int) async throws -> [CatBreed] {
         requestCount += 1
+        capturedPaginations.append(Pagination(page: page, limit: limit))
         return try results.removeFirst().get()
     }
 }

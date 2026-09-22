@@ -94,4 +94,30 @@ The first tab now renders `CatListView` inside its existing navigation stack. Th
 
 `ApplaudoChallengeApp` is the composition root. It creates the concrete service and repository once, owns the Observation ViewModel through `@State`, and injects it through `ContentView` into the feature view. Preview dependencies remain deterministic and do not call the live API.
 
-Detail navigation is deliberately not represented by a placeholder screen. Rows remain non-navigating and omit the chevron until the real detail destination is implemented in the next phase.
+## Phase 5 — Breed detail navigation
+
+Catalog rows navigate through a typed `NavigationStack` route that carries only the breed identifier. The destination resolves that identifier against the catalog ViewModel, which keeps the route stable without making the complete domain model `Hashable` solely for navigation. A defensive unavailable state handles a stale route instead of force-unwrapping it.
+
+The detail screen receives an immutable `CatBreed` value directly because it has no independent behavior or mutable state that would justify another ViewModel. It presents the required image, full description, origin, temperament, and life span using the supplied theme and components. `AsyncImage` explicitly handles loading, success, failure, and unknown states, and the system navigation bar provides the expected path back to the list.
+
+## Phase 6 — Multi-step cat registration
+
+The second tab contains a three-step form for identity, details, and review. `AddCatViewModel` uses Observation, is isolated to `MainActor`, and owns navigation, validation, saving, error, and confirmation state. Each step validates before advancing; errors appear beside their fields, and submission is guarded against duplicate saves. This also completes the optional form-validation story.
+
+Registered cats are represented by a separate `Codable` and `Sendable` domain model. Persistence sits behind `RegisteredCatRepositoryProtocol`, while `LocalRegisteredCatRepository` is an actor that serializes mutations to an atomically written JSON file in Application Support. JSON is intentionally used instead of SwiftData for this small append-only dataset: it keeps the storage boundary explicit and testable without adding framework or model-container complexity. A fresh repository instance can read previously saved data, so entries survive application restarts.
+
+The feature reuses the provided stepper, text field, button, section, and empty-state components. A matching multiline text-editor component was added for the description field. Unit tests cover per-step validation, normalized saves, failure state, reset behavior, initially empty storage, and persistence across repository instances.
+
+## Phase 7 — Incremental pagination
+
+The catalog now requests the next page automatically when a row within the final five results becomes visible. Initial loading and pagination have independent state so a later-page failure never replaces already loaded content. The footer communicates an in-progress request and offers an inline retry after failure.
+
+The ViewModel advances its page only after a successful response, retries the same page after failure, prevents overlapping requests, removes duplicate breed identifiers before appending, and stops once the API returns fewer results than the requested limit. Tests cover the activation threshold, request parameters, content preservation, retry behavior, duplicate filtering, end detection, and concurrent-request suppression.
+
+## Phase 8 — Quality and delivery validation
+
+The documented `make setup-project` workflow was run from the repository root to validate the pinned tool installation, package resolution, and clean Tuist workspace generation. After generation, both test schemes were executed on an iPhone 18 Pro simulator running iOS 27.0: all 19 application tests and all 3 networking tests passed with no runtime warnings. A clean application launch also loaded the live catalog successfully, and the final source diff passes Git's whitespace validation.
+
+## Further improvements
+
+Given more time, UI tests for navigation and the complete registration journey, image caching, localization, and a user-facing collection of registered cats would be the next priorities. The JSON repository is appropriate for the challenge's small append-only dataset; if registered cats gained editing, deletion, querying, or relationships, it would be reasonable to replace that implementation behind the existing protocol with SwiftData or another database.
