@@ -5,15 +5,20 @@ import SwiftUI
 struct ApplaudoChallengeApp: App {
     @State private var catListViewModel: CatListViewModel
     @State private var addCatViewModel: AddCatViewModel
+    @State private var savedCatsViewModel: SavedCatsViewModel
 
     init() {
         let service = CatInformationService()
         let repository = CatBreedRepository(service: service)
+        let registeredCatRepository = LocalRegisteredCatRepository()
         _catListViewModel = State(
             initialValue: CatListViewModel(repository: repository)
         )
         _addCatViewModel = State(
-            initialValue: AddCatViewModel(repository: LocalRegisteredCatRepository())
+            initialValue: AddCatViewModel(repository: registeredCatRepository)
+        )
+        _savedCatsViewModel = State(
+            initialValue: SavedCatsViewModel(repository: registeredCatRepository)
         )
     }
 
@@ -21,7 +26,8 @@ struct ApplaudoChallengeApp: App {
         WindowGroup {
             ContentView(
                 catListViewModel: catListViewModel,
-                addCatViewModel: addCatViewModel
+                addCatViewModel: addCatViewModel,
+                savedCatsViewModel: savedCatsViewModel
             )
         }
     }

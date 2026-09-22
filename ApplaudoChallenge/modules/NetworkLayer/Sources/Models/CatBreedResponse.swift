@@ -3,20 +3,20 @@ import Foundation
 public struct CatBreedResponse: Decodable, Equatable, Sendable {
     public let id: String
     public let name: String
-    public let description: String
-    public let origin: String
-    public let temperament: String
-    public let lifeSpan: String
+    public let description: String?
+    public let origin: String?
+    public let temperament: String?
+    public let lifeSpan: String?
     public let referenceImageID: String?
     public let image: CatImageResponse?
 
     public init(
         id: String,
         name: String,
-        description: String,
-        origin: String,
-        temperament: String,
-        lifeSpan: String,
+        description: String?,
+        origin: String?,
+        temperament: String?,
+        lifeSpan: String?,
         referenceImageID: String?,
         image: CatImageResponse?
     ) {

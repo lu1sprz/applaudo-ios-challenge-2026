@@ -23,6 +23,23 @@ struct NetworkLayerTests {
         #expect(await requester.capturedPagination == Pagination(page: 2, limit: 10))
     }
 
+    @Test("It accepts nullable breed metadata")
+    func nullableBreedMetadata() async throws {
+        let requester = NetworkingRequesterStub(
+            result: .success(Self.nullableBreedFixture)
+        )
+        let service = CatInformationService(requester: requester)
+
+        let breeds = try await service.fetchBreeds(page: 1, limit: 20)
+
+        let breed = try #require(breeds.first)
+        #expect(breed.id == "cara")
+        #expect(breed.description == nil)
+        #expect(breed.origin == nil)
+        #expect(breed.temperament == nil)
+        #expect(breed.lifeSpan == nil)
+    }
+
     @Test("It maps malformed JSON to a decoding error")
     func decodingFailure() async {
         let requester = NetworkingRequesterStub(
@@ -89,6 +106,23 @@ struct NetworkLayerTests {
               "width": 1204,
               "height": 1445
             }
+          }
+        ]
+        """#.utf8
+    )
+
+    private static let nullableBreedFixture = Data(
+        #"""
+        [
+          {
+            "id": "cara",
+            "name": "Caracat",
+            "description": null,
+            "origin": null,
+            "temperament": null,
+            "life_span": null,
+            "reference_image_id": null,
+            "image": null
           }
         ]
         """#.utf8

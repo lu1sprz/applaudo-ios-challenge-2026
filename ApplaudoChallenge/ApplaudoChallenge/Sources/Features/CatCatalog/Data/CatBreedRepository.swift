@@ -17,10 +17,10 @@ private extension CatBreed {
         self.init(
             id: response.id,
             name: response.name,
-            description: response.description,
-            origin: response.origin,
-            temperament: response.temperament,
-            lifeSpan: response.lifeSpan,
+            description: response.description ?? "No description available.",
+            origin: response.origin ?? "Not available",
+            temperament: response.temperament ?? "Not available",
+            lifeSpan: response.lifeSpan ?? "Not available",
             imageID: response.image?.id ?? response.referenceImageID,
             imageURL: response.image?.url
         )

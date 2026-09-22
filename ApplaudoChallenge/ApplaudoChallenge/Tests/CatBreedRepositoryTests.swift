@@ -64,6 +64,30 @@ struct CatBreedRepositoryTests {
         #expect(breeds.first?.imageURL == nil)
     }
 
+    @Test("It provides safe domain values for missing metadata")
+    func mapsMissingMetadata() async throws {
+        let response = CatBreedResponse(
+            id: "cara",
+            name: "Caracat",
+            description: nil,
+            origin: nil,
+            temperament: nil,
+            lifeSpan: nil,
+            referenceImageID: nil,
+            image: nil
+        )
+        let service = CatInformationServiceStub(result: .success([response]))
+        let repository = CatBreedRepository(service: service)
+
+        let breeds = try await repository.fetchBreeds(page: 1, limit: 20)
+
+        let breed = try #require(breeds.first)
+        #expect(breed.description == "No description available.")
+        #expect(breed.origin == "Not available")
+        #expect(breed.temperament == "Not available")
+        #expect(breed.lifeSpan == "Not available")
+    }
+
     @Test("It propagates service errors")
     func propagatesError() async {
         let service = CatInformationServiceStub(result: .failure(.unavailable))

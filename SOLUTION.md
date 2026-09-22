@@ -78,6 +78,8 @@ The application does not expose networking DTOs to its presentation layer. `CatB
 
 The domain model conforms to `Identifiable` and `Sendable`. It retains the image resource identifier independently from the optional image URL so a later detail implementation can resolve missing image metadata without leaking the API response shape into the UI. `Hashable` is intentionally deferred until a concrete navigation design requires value-based routing.
 
+The external API occasionally returns null descriptive metadata even for successful breed responses. The transport DTO reflects that nullability, while the repository normalizes missing description, origin, temperament, and life-span values before they reach the non-optional domain model. This prevents one incomplete breed from invalidating an otherwise usable page.
+
 Repository tests cover complete DTO mapping, pagination forwarding, absent image metadata, and service-error propagation. The service dependency is an actor-based fake, so the tests exercise the same `Sendable` contract used by production code under Swift 6.
 
 ## Phase 3 — Observable presentation state
@@ -116,8 +118,14 @@ The ViewModel advances its page only after a successful response, retries the sa
 
 ## Phase 8 — Quality and delivery validation
 
-The documented `make setup-project` workflow was run from the repository root to validate the pinned tool installation, package resolution, and clean Tuist workspace generation. After generation, both test schemes were executed on an iPhone 18 Pro simulator running iOS 27.0: all 19 application tests and all 3 networking tests passed with no runtime warnings. A clean application launch also loaded the live catalog successfully, and the final source diff passes Git's whitespace validation.
+The documented `make setup-project` workflow was run from the repository root to validate the pinned tool installation, package resolution, and clean Tuist workspace generation. After generation, both test schemes were executed on an iPhone 18 Pro simulator running iOS 27.0: all 23 application tests and all 4 networking tests passed with no runtime warnings. A clean application launch also loaded the live catalog successfully, and the final source diff passes Git's whitespace validation.
+
+## Saved cats library
+
+A third tab exposes the locally registered cats, ordered with the newest registration first. The registration and saved-cats ViewModels receive the same actor-backed repository instance from the application composition root, so writes and reads remain serialized and use one storage source. Selecting the tab reloads its contents from disk, including registrations created during the current session or a previous launch.
+
+The screen has explicit loading, content, empty, and failure states. Its empty state explains that no cats have been registered and provides a button that changes the selected tab to the registration flow. ViewModel tests cover ordering, empty storage, failure, and recovery.
 
 ## Further improvements
 
-Given more time, UI tests for navigation and the complete registration journey, image caching, localization, and a user-facing collection of registered cats would be the next priorities. The JSON repository is appropriate for the challenge's small append-only dataset; if registered cats gained editing, deletion, querying, or relationships, it would be reasonable to replace that implementation behind the existing protocol with SwiftData or another database.
+Given more time, UI tests for navigation and the complete registration journey, image caching, localization, and editing or deleting registered cats would be the next priorities. The JSON repository is appropriate for the challenge's small append-only dataset; if registered cats gained editing, deletion, querying, or relationships, it would be reasonable to replace that implementation behind the existing protocol with SwiftData or another database.

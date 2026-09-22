@@ -27,9 +27,9 @@ struct CatBreedDetailView: View {
                 )
 
                 detailSection(
-                    title: "Life Span",
+                    title: "Life Span (years)",
                     systemImage: "calendar",
-                    content: "\(breed.lifeSpan) years"
+                    content: breed.lifeSpan
                 )
             }
             .padding(AppTheme.Spacing.md)
