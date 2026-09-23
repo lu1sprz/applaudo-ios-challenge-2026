@@ -54,49 +54,39 @@ actor NetworkingRequester: NetworkingRequesterType {
     }
 
     func execute(request: any NetworkingTargetType) async throws -> Data {
-        let cancellation = RequestCancellation()
-
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                let task = provider.request(MultiTarget(request)) { result in
-                    if cancellation.isCancelled {
-                        continuation.resume(throwing: CancellationError())
+        let data: Data = try await withCheckedThrowingContinuation { continuation in
+            provider.request(MultiTarget(request)) { result in
+                switch result {
+                case .success(let response):
+                    guard (200...299).contains(response.statusCode) else {
+                        continuation.resume(
+                            throwing: NetworkError.serverError(
+                                statusCode: response.statusCode,
+                                data: response.data
+                            )
+                        )
                         return
                     }
 
-                    switch result {
-                    case .success(let response):
-                        guard (200...299).contains(response.statusCode) else {
-                            continuation.resume(
-                                throwing: NetworkError.serverError(
-                                    statusCode: response.statusCode,
-                                    data: response.data
-                                )
+                    continuation.resume(returning: response.data)
+                case .failure(let error):
+                    if let response = error.response,
+                       !(200...299).contains(response.statusCode) {
+                        continuation.resume(
+                            throwing: NetworkError.serverError(
+                                statusCode: response.statusCode,
+                                data: response.data
                             )
-                            return
-                        }
-
-                        continuation.resume(returning: response.data)
-                    case .failure(let error):
-                        if let response = error.response,
-                           !(200...299).contains(response.statusCode) {
-                            continuation.resume(
-                                throwing: NetworkError.serverError(
-                                    statusCode: response.statusCode,
-                                    data: response.data
-                                )
-                            )
-                        } else {
-                            continuation.resume(throwing: NetworkError.unknown(underlying: error))
-                        }
+                        )
+                    } else {
+                        continuation.resume(throwing: NetworkError.unknown(underlying: error))
                     }
                 }
-
-                cancellation.store(task)
             }
-        } onCancel: {
-            cancellation.cancel()
         }
+
+        try _Concurrency.Task<Never, Never>.checkCancellation()
+        return data
     }
 }
 
@@ -117,40 +107,5 @@ extension NetworkingRequesterType {
         } catch {
             throw NetworkError.decodingFailed(underlying: error)
         }
-    }
-}
-
-private final class RequestCancellation: @unchecked Sendable {
-    private let lock = NSLock()
-    private var request: Moya.Cancellable?
-    private var cancelled = false
-
-    var isCancelled: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return cancelled
-    }
-
-    func store(_ request: Moya.Cancellable) {
-        lock.lock()
-        let shouldCancel = cancelled
-        if !shouldCancel {
-            self.request = request
-        }
-        lock.unlock()
-
-        if shouldCancel {
-            request.cancel()
-        }
-    }
-
-    func cancel() {
-        lock.lock()
-        cancelled = true
-        let request = request
-        self.request = nil
-        lock.unlock()
-
-        request?.cancel()
     }
 }

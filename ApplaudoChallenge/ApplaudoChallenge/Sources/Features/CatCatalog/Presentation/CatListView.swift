@@ -3,8 +3,8 @@ import SwiftUI
 struct CatListView: View {
     let viewModel: CatListViewModel
 
-    @State private var loadRequest = 0
-    @State private var paginationRetryRequest = 0
+    @State private var catalogRetryTrigger = 0
+    @State private var paginationRetryTrigger = 0
 
     var body: some View {
         Group {
@@ -22,18 +22,18 @@ struct CatListView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.Colors.background)
         .navigationTitle("Cat Breeds")
-        .task(id: loadRequest) {
-            if loadRequest == 0 {
-                await viewModel.loadBreeds()
-            } else {
-                await viewModel.retry()
-            }
+        .task {
+            await viewModel.loadBreeds()
+        }
+        .task(id: catalogRetryTrigger) {
+            guard catalogRetryTrigger > 0 else { return }
+            await viewModel.retry()
         }
         .navigationDestination(for: CatCatalogRoute.self) { route in
             destination(for: route)
         }
-        .task(id: paginationRetryRequest) {
-            guard paginationRetryRequest > 0 else { return }
+        .task(id: paginationRetryTrigger) {
+            guard paginationRetryTrigger > 0 else { return }
             await viewModel.retryNextPage()
         }
     }
@@ -90,7 +90,7 @@ struct CatListView: View {
                     .multilineTextAlignment(.center)
 
                 Button("Try Again") {
-                    paginationRetryRequest += 1
+                    paginationRetryTrigger += 1
                 }
                 .font(AppTheme.Fonts.body)
                 .foregroundStyle(AppTheme.Colors.primary)
@@ -117,7 +117,7 @@ struct CatListView: View {
             title: "Unable to Load Breeds",
             message: message,
             buttonTitle: "Try Again",
-            action: { loadRequest += 1 }
+            action: { catalogRetryTrigger += 1 }
         )
         .accessibilityIdentifier("cat-list-error")
     }

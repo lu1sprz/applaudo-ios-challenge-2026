@@ -85,10 +85,8 @@ struct CatBreedDetailView: View {
     private func imagePlaceholder<Content: View>(
         @ViewBuilder content: () -> Content
     ) -> some View {
-        ZStack {
-            AppTheme.Colors.surface
-            content()
-        }
+        content()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func detailSection(
