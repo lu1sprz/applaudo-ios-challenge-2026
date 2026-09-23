@@ -1,7 +1,7 @@
 # NetworkLayer
 
 A pre-built networking module that abstracts the HTTP communication layer for the iOS challenge project.  
-It is backed by [Moya](https://github.com/Moya/Moya) and [Combine](https://developer.apple.com/documentation/combine).
+It is backed by [Moya](https://github.com/Moya/Moya) and exposes an async/await API.
 
 ---
 
@@ -31,10 +31,10 @@ This module connects to [The Cat API](https://thecatapi.com). You need a free AP
 1. Generate your key at:  
    **https://developers.thecatapi.com/view-account/ylX4blBYT9FaoVd6OhvR?report=FJkYOq9tW**
 
-2. Once you have the key, replace the placeholder in `NetworkingTargetType.swift`:
+2. Once you have the key, replace the placeholder in `ApplaudoChallenge/.env`:
 
-```swift
-"x-api-key": "YOUR-API-KEY"
+```sh
+CAT_API_KEY=YOUR-API-KEY
 ```
 
 > Requests made without a valid key will be rate-limited and may fail.
@@ -46,7 +46,7 @@ This module connects to [The Cat API](https://thecatapi.com). You need a free AP
 Consumers of this module should:
 
 1. Define a new target conforming to `NetworkingTargetType` (see `CatInformationTarget` as a reference).
-2. Create a service in the `Services/` folder that holds a `NetworkingRequesterType` dependency and exposes Combine publishers to the rest of the app.
+2. Create a service in the `Services/` folder that holds a `NetworkingRequesterType` dependency and exposes async functions to the rest of the app.
 3. Inject the service into the relevant view model or coordinator.
 
 ---

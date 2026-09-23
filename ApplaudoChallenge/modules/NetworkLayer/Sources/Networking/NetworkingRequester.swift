@@ -7,12 +7,11 @@
 
 import Foundation
 import Moya
-import Combine
 
 // MARK: - Network Error
 /// Lightweight domain error type that wraps common networking failures.
 /// Candidates can extend this enum with additional cases as needed.
-public enum NetworkError: Error, LocalizedError {
+public enum NetworkError: Error, LocalizedError, Sendable {
     /// The server returned an unexpected status code.
     case serverError(statusCode: Int, data: Data)
     /// The response data could not be decoded into the expected type.
@@ -35,15 +34,15 @@ public enum NetworkError: Error, LocalizedError {
 // MARK: - Networking Requester Type
 /// Core networking abstraction. Any type conforming to this protocol can execute API requests.
 /// Implement `execute` to drive the full request lifecycle using the provided `NetworkingTargetType`.
-protocol NetworkingRequesterType {
-    /// Executes a network request and returns a raw-data publisher.
+protocol NetworkingRequesterType: Sendable {
+    /// Executes a network request and returns its raw response data.
     /// - Parameter request: The endpoint descriptor conforming to `NetworkingTargetType`.
-    func execute(request: NetworkingTargetType) -> AnyPublisher<Data, NetworkError>
+    func execute(request: any NetworkingTargetType) async throws -> Data
 }
 
 // MARK: - Networking Requester
 /// Concrete implementation of `NetworkingRequesterType` backed by a Moya `MoyaProvider<MultiTarget>`.
-struct NetworkingRequester: NetworkingRequesterType {
+actor NetworkingRequester: NetworkingRequesterType {
     // MARK: - Properties
     private let provider: MoyaProvider<MultiTarget>
 
@@ -54,59 +53,59 @@ struct NetworkingRequester: NetworkingRequesterType {
         self.provider = provider
     }
 
-    func execute(request: NetworkingTargetType) -> AnyPublisher<Data, NetworkError> {
-        var task: Moya.Cancellable?
-        let provider = provider // Captured locally to avoid reference issues inside the closure.
-
-        // Wrap the callback-based Moya API in a Combine Future so callers get a single-value publisher.
-        return Deferred { Future { seal in
-            // Store the cancellable so it can be cancelled later if the subscriber disposes.
-            task = provider.request(MultiTarget(request)) { result in
+    func execute(request: any NetworkingTargetType) async throws -> Data {
+        let data: Data = try await withCheckedThrowingContinuation { continuation in
+            provider.request(MultiTarget(request)) { result in
                 switch result {
                 case .success(let response):
-                    let statusCode = response.statusCode
-
-                    // Reject any response outside the 2XX range as a server error.
-                    guard (200...299).contains(statusCode) else {
-                        seal(.failure(.serverError(statusCode: statusCode, data: response.data)))
+                    guard (200...299).contains(response.statusCode) else {
+                        continuation.resume(
+                            throwing: NetworkError.serverError(
+                                statusCode: response.statusCode,
+                                data: response.data
+                            )
+                        )
                         return
                     }
 
-                    seal(.success(response.data))
+                    continuation.resume(returning: response.data)
                 case .failure(let error):
-                    // Moya-level failures (e.g. no connection) map to the generic domain error.
-                    seal(.failure(.unknown(underlying: error)))
+                    if let response = error.response,
+                       !(200...299).contains(response.statusCode) {
+                        continuation.resume(
+                            throwing: NetworkError.serverError(
+                                statusCode: response.statusCode,
+                                data: response.data
+                            )
+                        )
+                    } else {
+                        continuation.resume(throwing: NetworkError.unknown(underlying: error))
+                    }
                 }
             }
-        }}
-        // Propagate Combine cancellation back to the in-flight Moya task.
-        .handleEvents(receiveCancel: { task?.cancel() })
-        .eraseToAnyPublisher()
+        }
+
+        try _Concurrency.Task<Never, Never>.checkCancellation()
+        return data
     }
 }
 
 // MARK: - Default Implementation
-/// Convenience overload that decodes the raw response into a `Decodable` type.
-/// Reuses the raw-data `execute` and layers Combine's `decode` operator on top.
+/// Convenience overload that decodes the raw response into a `Decodable` value.
 extension NetworkingRequesterType {
     /// - Parameters:
     ///   - request: The endpoint descriptor.
     ///   - decoder: `JSONDecoder` to use; defaults to a standard instance.
-    func execute<T: Decodable>(
-        request: NetworkingTargetType,
+    func execute<T: Decodable & Sendable>(
+        request: any NetworkingTargetType,
         using decoder: JSONDecoder = .init()
-    ) -> AnyPublisher<T, NetworkError> {
-        execute(request: request) // Reuse the raw-data publisher.
-            .decode(type: T.self, decoder: decoder)
-            .mapError { error in
-                // Preserve any NetworkError that passed through; wrap all others as decoding failures.
-                if let networkError = error as? NetworkError {
-                    return networkError
-                }
+    ) async throws -> T {
+        let data = try await execute(request: request)
 
-                return .decodingFailed(underlying: error)
-            }
-            .eraseToAnyPublisher()
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            throw NetworkError.decodingFailed(underlying: error)
+        }
     }
 }
-

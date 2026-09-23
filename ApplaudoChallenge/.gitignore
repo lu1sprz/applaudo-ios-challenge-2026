@@ -62,6 +62,11 @@ DerivedData/
 *.xcodeproj
 *.xcworkspace
 
+### Local environment ###
+# In a production project, uncomment this rule to prevent credentials from being committed.
+# It remains commented for this challenge so reviewers receive the development configuration.
+# .env
+
 ### Tuist derived files ###
 graph.dot
 Derived/
